@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  medai-app:
+    build: .
+    container_name: medai-healthcare
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env  # Load .env file (create it with GEMINI_API_KEY=your_key)
+    environment:
+      # Pass API key from .env file or host environment
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/firebase_key.json
+    volumes:
+      - .:/app
+    restart: always

@@ -1,0 +1,7 @@
+{
+  "fever": {"cause": "flu or infection", "remedy": "Stay hydrated, rest, and use paracetamol if needed."},
+  "headache": {"cause": "stress or dehydration", "remedy": "Drink water, take rest, and avoid screens."},
+  "cough": {"cause": "cold or throat irritation", "remedy": "Drink warm water and honey, rest your voice."},
+  "dizzy": {"cause": "low blood sugar or dehydration", "remedy": "Sit or lie down, drink water, and eat something light."},
+  "stomach pain": {"cause": "indigestion or gas", "remedy": "Avoid spicy food, drink warm water, rest."}
+}
