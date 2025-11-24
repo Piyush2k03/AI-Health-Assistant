@@ -6,70 +6,68 @@ apiVersion: v1
 kind: Pod
 spec:
   containers:
+    - name: sonar-scanner
+      image: sonarsource/sonar-scanner-cli
+      command: ["cat"]
+      tty: true
 
-  - name: python
-    image: python:3.10
-    command: ['cat']
-    tty: true
+    - name: kubectl
+      image: bitnami/kubectl:latest
+      command: ["cat"]
+      tty: true
+      securityContext:
+        runAsUser: 0
+        readOnlyRootFilesystem: false
+      env:
+        - name: KUBECONFIG
+          value: /kube/config
+      volumeMounts:
+        - name: kubeconfig-secret
+          mountPath: /kube/config
+          subPath: kubeconfig
 
-  - name: sonar-scanner
-    image: sonarsource/sonar-scanner-cli
-    command: ['cat']
-    tty: true
-
-  - name: kubectl
-    image: bitnami/kubectl:latest
-    command: ['cat']
-    tty: true
-    env:
-    - name: KUBECONFIG
-      value: /kube/config
-    volumeMounts:
-    - name: kubeconfig-secret
-      mountPath: /kube/config
-      subPath: kubeconfig
-
-  - name: dind
-    image: docker:dind
-    args: ["--storage-driver=overlay2"]
-    securityContext:
-      privileged: true
-    env:
-    - name: DOCKER_TLS_CERTDIR
-      value: ""
-
+    - name: dind
+      image: docker:dind
+      args: ["--storage-driver=overlay2",
+             "--insecure-registry=nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085"]
+      securityContext:
+        privileged: true
+      env:
+        - name: DOCKER_TLS_CERTDIR
+          value: ""
   volumes:
-  - name: kubeconfig-secret
-    secret:
-      secretName: kubeconfig-secret
+    - name: kubeconfig-secret
+      secret:
+        secretName: kubeconfig-secret
 '''
         }
     }
 
     environment {
-        // Nexus registry details
-        REGISTRY    = "nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085"
-        REPO_PATH   = "piyushrepo"
-        IMAGE_NAME  = "ai-healthcare"
-        IMAGE_TAG   = "v1"
+        REGISTRY        = "nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085"
+        REPO_PATH       = "2401031"                // 👈 change if your repo name is different
+        IMAGE_NAME      = "ai-health-assistant"
+        IMAGE_TAG       = "v1"
 
-        // SonarQube details
-        SONAR_PROJECT_KEY = "ai-health-assistant"
+        K8S_NAMESPACE   = "2401031"
+
+        SONAR_PROJECT_KEY = "2401031_AI-Health-Assistant"
         SONAR_HOST_URL    = "http://my-sonarqube-sonarqube.sonarqube.svc.cluster.local:9000"
-        SONAR_LOGIN       = "REPLACE_WITH_YOUR_SONAR_TOKEN"
 
-        // K8s NS
-        NAMESPACE = "default"
+        // 👇 put your real Sonar token here (the sqp_xxx from SonarQube)
+        SONAR_LOGIN       = "sqp_b4150b4d3c8363c7f1daa109bf504c95d5681bdc"
     }
 
     stages {
 
-        stage('Install Dependencies') {
+        /* For Python/Streamlit we don't need npm build, so we skip that stage */
+
+        stage('Build Docker Image') {
             steps {
-                container('python') {
+                container('dind') {
                     sh '''
-                        echo "=== Installing requirements ==="
-                        pip install -r requirements.txt
+                        echo "=== Building Docker image for AI Health Assistant ==="
+                        docker build -t ${IMAGE_NAME}:latest .
                     '''
                 }
             }
@@ -79,6 +77,7 @@ spec:
             steps {
                 container('sonar-scanner') {
                     sh '''
+                        echo "=== Running SonarQube Analysis ==="
                         sonar-scanner \
                           -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
                           -Dsonar.sources=. \
@@ -89,38 +88,23 @@ spec:
             }
         }
 
-        stage('Build Docker Image') {
-            steps {
-                container('dind') {
-                    sh '''
-                        echo "=== Building Docker image ==="
-                        docker build -t ${IMAGE_NAME}:latest .
-                    '''
-                }
-            }
-        }
-
         stage('Login to Nexus Registry') {
             steps {
                 container('dind') {
                     sh '''
-                        docker login ${REGISTRY} \
-                          --username admin \
-                          --password Changeme@2025 \
-                          --tls-verify=false
+                        echo "=== Logging in to Nexus Docker registry ==="
+                        docker login ${REGISTRY} -u admin -p Changeme@2025
                     '''
                 }
             }
         }
 
-        stage('Tag & Push Image to Nexus') {
+        stage('Push Image to Nexus') {
             steps {
                 container('dind') {
                     sh '''
-                        echo "=== Tagging image ==="
+                        echo "=== Tagging and pushing image to Nexus ==="
                         docker tag ${IMAGE_NAME}:latest ${REGISTRY}/${REPO_PATH}/${IMAGE_NAME}:${IMAGE_TAG}
-
-                        echo "=== Pushing image ==="
                         docker push ${REGISTRY}/${REPO_PATH}/${IMAGE_NAME}:${IMAGE_TAG}
                     '''
                 }
@@ -131,24 +115,37 @@ spec:
             steps {
                 container('kubectl') {
                     sh '''
-                        echo "=== Applying Kubernetes manifests ==="
-                        kubectl apply -f k8s/deployment.yaml -n ${NAMESPACE}
-                        kubectl apply -f k8s/service.yaml -n ${NAMESPACE}
+                        set -x
+                        echo "=== Files in workspace ==="
+                        ls -la
+                        ls -la k8s
 
-                        echo "=== Waiting for rollout ==="
-                        kubectl rollout status deployment/ai-healthcare-deployment -n ${NAMESPACE}
+                        echo "=== Applying Kubernetes manifests ==="
+                        kubectl apply -f k8s/deployment.yaml -n ${K8S_NAMESPACE}
+                        kubectl apply -f k8s/service.yaml -n ${K8S_NAMESPACE}
+
+                        echo "=== Checking resources in namespace ${K8S_NAMESPACE} ==="
+                        kubectl get all -n ${K8S_NAMESPACE}
+
+                        echo "=== Waiting for deployment rollout ==="
+                        kubectl rollout status deployment/ai-health-assistant-deployment -n ${K8S_NAMESPACE}
                     '''
                 }
             }
         }
-    }
 
-    post {
-        success {
-            echo "🚀 AI Health Assistant deployed successfully!"
-        }
-        failure {
-            echo "❌ Deployment failed!"
+        stage('Debug Pods') {
+            steps {
+                container('kubectl') {
+                    sh '''
+                        echo "[DEBUG] Listing Pods in ${K8S_NAMESPACE}..."
+                        kubectl get pods -n ${K8S_NAMESPACE}
+
+                        echo "[DEBUG] Describing first pods..."
+                        kubectl describe pods -n ${K8S_NAMESPACE} | head -n 200 || true
+                    '''
+                }
+            }
         }
     }
 }
