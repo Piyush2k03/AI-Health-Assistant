@@ -41,6 +41,8 @@ spec:
       volumeMounts:
         - name: docker-graph-storage
           mountPath: /var/lib/docker
+        - name: dind-sock
+          mountPath: /var/run
 
   volumes:
     - name: kubeconfig-secret
@@ -48,6 +50,9 @@ spec:
         secretName: kubeconfig-secret
 
     - name: docker-graph-storage
+      emptyDir: {}
+
+    - name: dind-sock
       emptyDir: {}
 '''
         }
@@ -72,6 +77,16 @@ spec:
             steps {
                 container('dind') {
                     sh '''
+                        echo "=== Waiting for Docker daemon (DinD) to be ready ==="
+                        for i in {1..30}; do
+                          if docker info >/dev/null 2>&1; then
+                            echo "Docker daemon is UP ✅"
+                            break
+                          fi
+                          echo "Docker not ready yet... waiting 2s ($i/30)"
+                          sleep 2
+                        done
+
                         echo "=== Building Docker image ==="
                         docker info
                         docker build -t ${IMAGE_NAME}:latest .
@@ -99,6 +114,16 @@ spec:
             steps {
                 container('dind') {
                     sh '''
+                        echo "=== Waiting for Docker daemon before login ==="
+                        for i in {1..30}; do
+                          if docker info >/dev/null 2>&1; then
+                            echo "Docker daemon is UP ✅"
+                            break
+                          fi
+                          echo "Docker not ready yet... waiting 2s ($i/30)"
+                          sleep 2
+                        done
+
                         echo "=== Logging in to Nexus registry ==="
                         docker login ${REGISTRY} -u admin -p Changeme@2025
                     '''
@@ -110,6 +135,16 @@ spec:
             steps {
                 container('dind') {
                     sh '''
+                        echo "=== Waiting for Docker daemon before push ==="
+                        for i in {1..30}; do
+                          if docker info >/dev/null 2>&1; then
+                            echo "Docker daemon is UP ✅"
+                            break
+                          fi
+                          echo "Docker not ready yet... waiting 2s ($i/30)"
+                          sleep 2
+                        done
+
                         echo "=== Tag & Push Docker Image ==="
                         docker tag ${IMAGE_NAME}:latest ${REGISTRY}/${REPO_PATH}/${IMAGE_NAME}:${IMAGE_TAG}
                         docker push ${REGISTRY}/${REPO_PATH}/${IMAGE_NAME}:${IMAGE_TAG}
