@@ -41,6 +41,8 @@ spec:
       volumeMounts:
         - name: docker-graph-storage
           mountPath: /var/lib/docker
+        - name: dind-sock
+          mountPath: /var/run
 
   volumes:
     - name: kubeconfig-secret
@@ -48,6 +50,9 @@ spec:
         secretName: kubeconfig-secret
 
     - name: docker-graph-storage
+      emptyDir: {}
+
+    - name: dind-sock
       emptyDir: {}
 '''
         }
