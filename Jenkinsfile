@@ -78,7 +78,7 @@ spec:
                 container('dind') {
                     sh '''
                         echo "=== Waiting for Docker daemon (DinD) to be ready ==="
-                        for i in {1..30}; do
+                        for i in $(seq 1 30); do
                           if docker info >/dev/null 2>&1; then
                             echo "Docker daemon is UP ✅"
                             break
@@ -115,7 +115,7 @@ spec:
                 container('dind') {
                     sh '''
                         echo "=== Waiting for Docker daemon before login ==="
-                        for i in {1..30}; do
+                        for i in $(seq 1 30); do
                           if docker info >/dev/null 2>&1; then
                             echo "Docker daemon is UP ✅"
                             break
@@ -136,7 +136,7 @@ spec:
                 container('dind') {
                     sh '''
                         echo "=== Waiting for Docker daemon before push ==="
-                        for i in {1..30}; do
+                        for i in $(seq 1 30); do
                           if docker info >/dev/null 2>&1; then
                             echo "Docker daemon is UP ✅"
                             break
