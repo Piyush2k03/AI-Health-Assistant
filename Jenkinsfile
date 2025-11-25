@@ -101,10 +101,10 @@ spec:
                     sh '''
                         echo "=== Running SonarQube Analysis ==="
                         sonar-scanner \
-                          -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                          -Dsonar.projectKey= 2401031-AI-Health \
                           -Dsonar.sources=. \
-                          -Dsonar.host.url=${SONAR_HOST_URL} \
-                          -Dsonar.login=${SONAR_LOGIN}
+                          -Dsonar.host.url=http://my-sonarqube-sonarqube.sonarqube.svc.cluster.local:9000 \
+                          -Dsonar.login=sqa_e53794a2b7f57993523e5ce878c9b7814806668b
                     '''
                 }
             }
