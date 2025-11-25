@@ -153,38 +153,38 @@ spec:
             }
         }
 
-        // stage('Deploy to Kubernetes') {
-        //     steps {
-        //         container('kubectl') {
-        //             sh '''
-        //                 set -x
+        stage('Deploy to Kubernetes') {
+            steps {
+                container('kubectl') {
+                    sh '''
+                        set -x
 
-        //                 echo "=== Applying Deployment and Service ==="
-        //                 kubectl apply -f k8s/deployment.yaml -n ${K8S_NAMESPACE}
-        //                 kubectl apply -f k8s/service.yaml -n ${K8S_NAMESPACE}
+                        echo "=== Applying Deployment and Service ==="
+                        kubectl apply -f k8s/deployment.yaml -n ${K8S_NAMESPACE}
+                        kubectl apply -f k8s/service.yaml -n ${K8S_NAMESPACE}
 
-        //                 echo "=== Checking Resources ==="
-        //                 kubectl get all -n ${K8S_NAMESPACE}
+                        echo "=== Checking Resources ==="
+                        kubectl get all -n ${K8S_NAMESPACE}
 
-        //                 echo "=== Waiting for Deployment Rollout ==="
-        //                 kubectl rollout status deployment/ai-health-assistant-deployment -n ${K8S_NAMESPACE}
-        //             '''
-        //         }
-        //     }
-        // }
+                        echo "=== Waiting for Deployment Rollout ==="
+                        kubectl rollout status deployment/ai-health-assistant-deployment -n ${K8S_NAMESPACE}
+                    '''
+                }
+            }
+        }
 
-        // stage('Debug Pods') {
-        //     steps {
-        //         container('kubectl') {
-        //             sh '''
-        //                 echo "[DEBUG] Pods in namespace: ${K8S_NAMESPACE}"
-        //                 kubectl get pods -n ${K8S_NAMESPACE}
+        stage('Debug Pods') {
+            steps {
+                container('kubectl') {
+                    sh '''
+                        echo "[DEBUG] Pods in namespace: ${K8S_NAMESPACE}"
+                        kubectl get pods -n ${K8S_NAMESPACE}
 
-        //                 echo "[DEBUG] Describe pods:"
-        //                 kubectl describe pods -n ${K8S_NAMESPACE} | head -n 200 || true
-        //             '''
-        //         }
-        //     }
-        // }
+                        echo "[DEBUG] Describe pods:"
+                        kubectl describe pods -n ${K8S_NAMESPACE} | head -n 200 || true
+                    '''
+                }
+            }
+        }
     }
 }
