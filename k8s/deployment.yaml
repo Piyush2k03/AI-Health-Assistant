@@ -19,9 +19,32 @@ spec:
           image: nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085/2401031/ai-health-assistant:v1
           ports:
             - containerPort: 8501
+
+          # ==========================
+          # 🔥 Environment Variables
+          # ==========================
           env:
             - name: GEMINI_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: gemini-secret       # only if your college created such secret
+                  name: gemini-secret
                   key: GEMINI_API_KEY
+
+            - name: FIREBASE_KEY_PATH
+              value: "/app/firebase_key.json"
+
+          # ==========================
+          # 🔥 Mount Firebase Secret
+          # ==========================
+          volumeMounts:
+            - name: firebase-secret
+              mountPath: /app/firebase_key.json
+              subPath: firebase_key.json
+
+      # ==========================
+      # 🔥 Declare Volumes
+      # ==========================
+      volumes:
+        - name: firebase-secret
+          secret:
+            secretName: firebase-secret

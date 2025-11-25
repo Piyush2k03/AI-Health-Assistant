@@ -5,10 +5,10 @@ metadata:
   labels:
     app: ai-health-assistant
 spec:
-  type: NodePort          # or ClusterIP, depending on college instructions
+  type: NodePort              # Use NodePort only if your college allows external access
   selector:
-    app: ai-health-assistant
+    app: ai-health-assistant  # Must match deployment labels
   ports:
-    - port: 80
-      targetPort: 8501
-      nodePort: 30051     # only if type: NodePort & allowed by college
+    - port: 80                # Service Port (browser will use this)
+      targetPort: 8501        # Streamlit container port
+      nodePort: 30051         # NodePort (only for NodePort type)
