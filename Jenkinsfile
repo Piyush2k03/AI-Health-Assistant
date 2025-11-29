@@ -8,18 +8,12 @@ kind: Pod
 spec:
   containers:
 
-    # -----------------------------
-    # 1) SONAR SCANNER CONTAINER
-    # -----------------------------
     - name: sonar-scanner
       image: sonarsource/sonar-scanner-cli
       command: ["sleep"]
       args: ["99d"]
       tty: true
 
-    # -----------------------------
-    # 2) KUBECTL CONTAINER (FIXED)
-    # -----------------------------
     - name: kubectl
       image: bitnami/kubectl:latest
       command: ["sleep"]
@@ -36,9 +30,6 @@ spec:
           mountPath: /kube/config
           subPath: kubeconfig
 
-    # -----------------------------
-    # 3) DOCKER IN DOCKER (FULLY FIXED)
-    # -----------------------------
     - name: dind
       image: docker:dind
       securityContext:
@@ -87,33 +78,40 @@ spec:
 
     stages {
 
+
+        /* -----------------------------------------
+           BUILD DOCKER IMAGE
+        ------------------------------------------*/
         stage('Build Docker Image') {
             steps {
                 container('dind') {
                     sh '''
-                        echo "=== Waiting for Docker daemon (DinD) ==="
+                        echo "=== Waiting for Docker daemon ==="
                         for i in $(seq 1 30); do
                           if docker info >/dev/null 2>&1; then
-                            echo "Docker is ready!"
+                            echo "Docker is READY!"
                             break
                           fi
-                          echo "Docker not ready... retry $i/30"
+                          echo "Docker not ready... $i/30"
                           sleep 2
                         done
 
-                        echo "=== Building AI Health Assistant Docker Image ==="
+                        echo "=== Building AI Health Assistant image ==="
                         docker build -t ${IMAGE_NAME}:latest .
                     '''
                 }
             }
         }
 
-    
+
+        /* -----------------------------------------
+           SONARQUBE ANALYSIS
+        ------------------------------------------*/
         stage('SonarQube Analysis') {
             steps {
                 container('sonar-scanner') {
                     sh '''
-                        echo "=== Running SonarQube Analysis ==="
+                        echo "=== Running SonarQube Scan ==="
                         sonar-scanner \
                           -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
                           -Dsonar.sources=. \
@@ -124,23 +122,28 @@ spec:
             }
         }
 
+
+        /* -----------------------------------------
+           LOGIN TO NEXUS
+        ------------------------------------------*/
         stage('Login to Nexus Registry') {
             steps {
                 container('dind') {
                     sh '''
-                        echo "=== Logging in to Nexus Docker Registry ==="
                         docker login ${REGISTRY} -u admin -p Changeme@2025
                     '''
                 }
             }
         }
 
-    
+
+        /* -----------------------------------------
+           PUSH DOCKER IMAGE
+        ------------------------------------------*/
         stage('Push Docker Image') {
             steps {
                 container('dind') {
                     sh '''
-                        echo "=== Tag & Push Docker Image ==="
                         docker tag ${IMAGE_NAME}:latest ${REGISTRY}/${REPO_PATH}/${IMAGE_NAME}:${IMAGE_TAG}
                         docker push ${REGISTRY}/${REPO_PATH}/${IMAGE_NAME}:${IMAGE_TAG}
                     '''
@@ -149,20 +152,37 @@ spec:
         }
 
 
+        /* -----------------------------------------
+           NEW STAGE: CREATE NAMESPACE
+        ------------------------------------------*/
+        stage('Create Namespace') {
+            steps {
+                container('kubectl') {
+                    sh '''
+                        echo "=== Creating Namespace ${K8S_NAMESPACE} if not exists ==="
+                        kubectl get namespace ${K8S_NAMESPACE} || kubectl create namespace ${K8S_NAMESPACE}
+                    '''
+                }
+            }
+        }
+
+
+        /* -----------------------------------------
+           DEPLOY TO KUBERNETES
+        ------------------------------------------*/
         stage('Deploy to Kubernetes') {
             steps {
                 container('kubectl') {
                     sh '''
                         set -x
 
-                        echo "=== Applying Deployment and Service ==="
+                        echo "=== Deploying to Kubernetes ==="
                         kubectl apply -f k8s/deployment.yaml -n ${K8S_NAMESPACE}
                         kubectl apply -f k8s/service.yaml -n ${K8S_NAMESPACE}
 
-                        echo "=== Checking Resources ==="
                         kubectl get all -n ${K8S_NAMESPACE}
 
-                        echo "=== Waiting for Deployment Rollout ==="
+                        echo "=== Waiting for deployment rollout ==="
                         kubectl rollout status deployment/ai-health-assistant-deployment -n ${K8S_NAMESPACE}
                     '''
                 }
@@ -170,18 +190,22 @@ spec:
         }
 
 
+        /* -----------------------------------------
+           DEBUG PODS
+        ------------------------------------------*/
         stage('Debug Pods') {
             steps {
                 container('kubectl') {
                     sh '''
-                        echo "=== PODS IN NAMESPACE ${K8S_NAMESPACE} ==="
+                        echo "=== POD LIST ==="
                         kubectl get pods -n ${K8S_NAMESPACE}
 
-                        echo "=== DESCRIBE FIRST POD ==="
+                        echo "=== POD DETAILS ==="
                         kubectl describe pods -n ${K8S_NAMESPACE} | head -n 200 || true
                     '''
                 }
             }
         }
+
     }
 }
