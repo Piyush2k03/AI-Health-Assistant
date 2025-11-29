@@ -1,4 +1,5 @@
 pipeline {
+
     agent {
         kubernetes {
             yaml '''
@@ -7,17 +8,26 @@ kind: Pod
 spec:
   containers:
 
+    # -----------------------------
+    # 1) SONAR SCANNER CONTAINER
+    # -----------------------------
     - name: sonar-scanner
       image: sonarsource/sonar-scanner-cli
       command: ["sleep"]
       args: ["99d"]
       tty: true
 
+    # -----------------------------
+    # 2) KUBECTL CONTAINER (FIXED)
+    # -----------------------------
     - name: kubectl
       image: bitnami/kubectl:latest
       command: ["sleep"]
       args: ["99d"]
       tty: true
+      securityContext:
+        runAsUser: 0
+        readOnlyRootFilesystem: false
       env:
         - name: KUBECONFIG
           value: /kube/config
@@ -26,6 +36,9 @@ spec:
           mountPath: /kube/config
           subPath: kubeconfig
 
+    # -----------------------------
+    # 3) DOCKER IN DOCKER (FULLY FIXED)
+    # -----------------------------
     - name: dind
       image: docker:dind
       securityContext:
@@ -58,6 +71,7 @@ spec:
         }
     }
 
+
     environment {
         REGISTRY        = "nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085"
         REPO_PATH       = "2401031"
@@ -77,24 +91,24 @@ spec:
             steps {
                 container('dind') {
                     sh '''
-                        echo "=== Waiting for Docker daemon (DinD) to be ready ==="
+                        echo "=== Waiting for Docker daemon (DinD) ==="
                         for i in $(seq 1 30); do
                           if docker info >/dev/null 2>&1; then
-                            echo "Docker daemon is UP ✅"
+                            echo "Docker is ready!"
                             break
                           fi
-                          echo "Docker not ready yet... waiting 2s ($i/30)"
+                          echo "Docker not ready... retry $i/30"
                           sleep 2
                         done
 
-                        echo "=== Building Docker image ==="
-                        docker info
+                        echo "=== Building AI Health Assistant Docker Image ==="
                         docker build -t ${IMAGE_NAME}:latest .
                     '''
                 }
             }
         }
 
+    
         stage('SonarQube Analysis') {
             steps {
                 container('sonar-scanner') {
@@ -114,37 +128,18 @@ spec:
             steps {
                 container('dind') {
                     sh '''
-                        echo "=== Waiting for Docker daemon before login ==="
-                        for i in $(seq 1 30); do
-                          if docker info >/dev/null 2>&1; then
-                            echo "Docker daemon is UP ✅"
-                            break
-                          fi
-                          echo "Docker not ready yet... waiting 2s ($i/30)"
-                          sleep 2
-                        done
-
-                        echo "=== Logging in to Nexus registry ==="
+                        echo "=== Logging in to Nexus Docker Registry ==="
                         docker login ${REGISTRY} -u admin -p Changeme@2025
                     '''
                 }
             }
         }
 
+    
         stage('Push Docker Image') {
             steps {
                 container('dind') {
                     sh '''
-                        echo "=== Waiting for Docker daemon before push ==="
-                        for i in $(seq 1 30); do
-                          if docker info >/dev/null 2>&1; then
-                            echo "Docker daemon is UP ✅"
-                            break
-                          fi
-                          echo "Docker not ready yet... waiting 2s ($i/30)"
-                          sleep 2
-                        done
-
                         echo "=== Tag & Push Docker Image ==="
                         docker tag ${IMAGE_NAME}:latest ${REGISTRY}/${REPO_PATH}/${IMAGE_NAME}:${IMAGE_TAG}
                         docker push ${REGISTRY}/${REPO_PATH}/${IMAGE_NAME}:${IMAGE_TAG}
@@ -152,6 +147,7 @@ spec:
                 }
             }
         }
+
 
         stage('Deploy to Kubernetes') {
             steps {
@@ -173,14 +169,15 @@ spec:
             }
         }
 
+
         stage('Debug Pods') {
             steps {
                 container('kubectl') {
                     sh '''
-                        echo "[DEBUG] Pods in namespace: ${K8S_NAMESPACE}"
+                        echo "=== PODS IN NAMESPACE ${K8S_NAMESPACE} ==="
                         kubectl get pods -n ${K8S_NAMESPACE}
 
-                        echo "[DEBUG] Describe pods:"
+                        echo "=== DESCRIBE FIRST POD ==="
                         kubectl describe pods -n ${K8S_NAMESPACE} | head -n 200 || true
                     '''
                 }
