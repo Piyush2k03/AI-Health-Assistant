@@ -2,18 +2,25 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ai-health-assistant-deployment
+  namespace: "2401031"
   labels:
     app: ai-health-assistant
+
 spec:
   replicas: 1
   selector:
     matchLabels:
       app: ai-health-assistant
+
   template:
     metadata:
       labels:
         app: ai-health-assistant
+
     spec:
+      imagePullSecrets:
+        - name: nexus-secret
+
       containers:
         - name: ai-health-assistant
           image: nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085/2401031/ai-health-assistant:v1
