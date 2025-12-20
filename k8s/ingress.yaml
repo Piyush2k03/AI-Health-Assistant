@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-health-assistant-service
+  namespace: "2401031"
+spec:
+  type: ClusterIP
+  selector:
+    app: ai-health-assistant
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080

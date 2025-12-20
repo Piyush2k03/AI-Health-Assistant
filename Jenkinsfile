@@ -131,8 +131,9 @@ spec:
       steps {
         container('kubectl') {
           sh '''
-            kubectl apply -f k8s/deployment.yaml -n ${K8S_NAMESPACE}
-            kubectl apply -f k8s/service.yaml -n ${K8S_NAMESPACE}
+            kubectl apply -f k8s/deployment.yaml -n 2401031
+            kubectl apply -f k8s/service.yaml -n 2401031
+            kubectl apply -f k8s/ingress.yaml -n 2401031
           '''
         }
       }
@@ -143,13 +144,13 @@ spec:
         container('kubectl') {
           sh '''
             echo "=== Pods ==="
-            kubectl get pods -n ${K8S_NAMESPACE}
+            kubectl get pods -n 2401031
 
             echo "=== Describe Pods ==="
-            kubectl describe pods -n ${K8S_NAMESPACE} || true
+            kubectl describe pods -n 2401031 || true
 
             echo "=== Services ==="
-            kubectl get svc -n ${K8S_NAMESPACE}
+            kubectl get svc -n 2401031
           '''
         }
       }
