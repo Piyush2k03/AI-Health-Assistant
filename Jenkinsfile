@@ -63,7 +63,7 @@ spec:
 
     SONAR_PROJECT_KEY = "2401031_AI_Health_Assistant"
     SONAR_HOST_URL    = "http://my-sonarqube-sonarqube.sonarqube.svc.cluster.local:9000"
-    SONAR_LOGIN       = credentials('sqp_35292295fac737f6f82bb734ad4957822aaa4026')   // 🔐 create this in Jenkins
+    SONAR_LOGIN       = credentials('sonar-token')   // 🔐 create this in Jenkins
   }
 
   stages {
