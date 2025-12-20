@@ -314,9 +314,9 @@ spec:
       steps {
         container('kubectl') {
           sh '''
-            kubectl apply -f k8s/deployment.yaml -n ${K8S_NAMESPACE}
-            kubectl apply -f k8s/service.yaml -n ${K8S_NAMESPACE}
-            kubectl apply -f k8s/ingress.yaml -n ${K8S_NAMESPACE}
+            kubectl apply -f k8s/deployment.yaml -n 2401031
+            kubectl apply -f k8s/service.yaml -n 2401031
+            kubectl apply -f k8s/ingress.yaml -n 2401031
           '''
         }
       }
@@ -326,8 +326,8 @@ spec:
       steps {
         container('kubectl') {
           sh '''
-            kubectl get pods -n ${K8S_NAMESPACE}
-            kubectl get svc -n ${K8S_NAMESPACE}
+            kubectl get pods -n 2401031
+            kubectl get svc -n 2401031
           '''
         }
       }
