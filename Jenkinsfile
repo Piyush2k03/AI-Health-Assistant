@@ -167,11 +167,15 @@
 //   }
 // }
 
+properties([
+  durabilityHint('PERFORMANCE_OPTIMIZED')
+])
 
 pipeline {
+
   agent {
     kubernetes {
-      yaml '''
+      yaml """
 apiVersion: v1
 kind: Pod
 spec:
@@ -181,24 +185,23 @@ spec:
     image: docker:28-dind
     securityContext:
       privileged: true
+    command: ["dockerd-entrypoint.sh"]
+    args:
+      - "--host=tcp://0.0.0.0:2375"
+      - "--storage-driver=overlay2"
+      - "--insecure-registry=nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085"
     env:
       - name: DOCKER_TLS_CERTDIR
         value: ""
-    command:
-      - dockerd-entrypoint.sh
-    args:
-      - "--storage-driver=overlay2"
-      - "--insecure-registry=nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085"
     volumeMounts:
-      - name: docker-graph-storage
+      - name: docker-storage
         mountPath: /var/lib/docker
       - name: workspace-volume
         mountPath: /home/jenkins/agent
 
   - name: sonar-scanner
     image: sonarsource/sonar-scanner-cli
-    command: ["sleep"]
-    args: ["99d"]
+    command: ["cat"]
     tty: true
     volumeMounts:
       - name: workspace-volume
@@ -206,9 +209,11 @@ spec:
 
   - name: kubectl
     image: bitnami/kubectl:latest
-    command: ["sleep"]
-    args: ["99d"]
+    command: ["cat"]
     tty: true
+    securityContext:
+      runAsUser: 0
+      readOnlyRootFilesystem: false
     env:
       - name: KUBECONFIG
         value: /kube/config
@@ -220,50 +225,45 @@ spec:
         mountPath: /home/jenkins/agent
 
   volumes:
-    - name: docker-graph-storage
+    - name: docker-storage
       emptyDir: {}
     - name: workspace-volume
       emptyDir: {}
     - name: kubeconfig-secret
       secret:
         secretName: kubeconfig-secret
-'''
+"""
     }
+  }
+
+  options {
+    skipDefaultCheckout()
   }
 
   environment {
     IMAGE_NAME = "ai-health-assistant"
     IMAGE_TAG  = "v1"
-    REGISTRY   = "nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085"
-    REPO_PATH  = "2401031"
+
+    REGISTRY_HOST = "nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085"
+    REGISTRY      = "\${REGISTRY_HOST}/2401031"
+
     K8S_NAMESPACE = "2401031"
 
-    SONAR_PROJECT_KEY = "2401031_HealthAssistant"
+    SONAR_PROJECT_KEY = "2401031_AI_Health_Assistant"
     SONAR_HOST_URL    = "http://my-sonarqube-sonarqube.sonarqube.svc.cluster.local:9000"
-    SONAR_TOKEN       = credentials('sonar-token-2401031')
+
+    // Jenkins Credentials
+    SONAR_TOKEN = credentials('sonar-token-2401031')
   }
 
   stages {
 
     stage('Checkout Code') {
       steps {
-        checkout scm
-      }
-    }
-
-    stage('Docker Login') {
-      steps {
-        container('dind') {
-          withCredentials([usernamePassword(
-            credentialsId: 'nexus-docker-creds',
-            usernameVariable: 'NEXUS_USER',
-            passwordVariable: 'NEXUS_PASS'
-          )]) {
-            sh '''
-              echo "$NEXUS_PASS" | docker login ${REGISTRY} -u "$NEXUS_USER" --password-stdin
-            '''
-          }
-        }
+        sh '''
+          rm -rf *
+          git clone https://github.com/Piyush2k03/AI-Health-Assistant.git .
+        '''
       }
     }
 
@@ -271,12 +271,13 @@ spec:
       steps {
         container('dind') {
           sh '''
-            echo "Waiting for Docker daemon..."
+            echo "⏳ Waiting for Docker daemon..."
             for i in $(seq 1 30); do
               docker info && break
               sleep 2
             done
 
+            echo "🐳 Building Docker image..."
             docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
           '''
         }
@@ -297,14 +298,22 @@ spec:
       }
     }
 
+    stage('Login to Nexus') {
+      steps {
+        container('dind') {
+          sh '''
+            docker login ${REGISTRY_HOST} -u admin -p Changeme@2025
+          '''
+        }
+      }
+    }
+
     stage('Push Image to Nexus') {
       steps {
         container('dind') {
           sh '''
-            docker tag ${IMAGE_NAME}:${IMAGE_TAG} \
-              ${REGISTRY}/${REPO_PATH}/${IMAGE_NAME}:${IMAGE_TAG}
-
-            docker push ${REGISTRY}/${REPO_PATH}/${IMAGE_NAME}:${IMAGE_TAG}
+            docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+            docker push ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
           '''
         }
       }
@@ -314,9 +323,11 @@ spec:
       steps {
         container('kubectl') {
           sh '''
-            kubectl apply -f k8s/deployment.yaml -n 2401031
-            kubectl apply -f k8s/service.yaml -n 2401031
-            kubectl apply -f k8s/ingress.yaml -n 2401031
+            kubectl apply -f k8s/deployment.yaml -n ${K8S_NAMESPACE}
+            kubectl apply -f k8s/service.yaml -n ${K8S_NAMESPACE}
+
+            echo "⏳ Waiting for rollout..."
+            kubectl rollout status deployment/ai-health-assistant-deployment -n ${K8S_NAMESPACE}
           '''
         }
       }
@@ -326,8 +337,11 @@ spec:
       steps {
         container('kubectl') {
           sh '''
-            kubectl get pods -n 2401031
-            kubectl get svc -n 2401031
+            echo "=== Pods ==="
+            kubectl get pods -n ${K8S_NAMESPACE}
+
+            echo "=== Services ==="
+            kubectl get svc -n ${K8S_NAMESPACE}
           '''
         }
       }
@@ -336,10 +350,13 @@ spec:
 
   post {
     success {
-      echo "✅ Pipeline completed successfully"
+      echo "✅ AI Health Assistant CI/CD Pipeline SUCCESS"
     }
     failure {
-      echo "❌ Pipeline failed — check logs above"
+      echo "❌ Pipeline FAILED — check logs"
+    }
+    always {
+      echo "🔄 Pipeline finished"
     }
   }
 }
