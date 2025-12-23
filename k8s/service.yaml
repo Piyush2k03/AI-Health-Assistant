@@ -2,13 +2,15 @@ apiVersion: v1
 kind: Service
 metadata:
   name: ai-health-assistant-service
+  namespace: "2401031"
   labels:
     app: ai-health-assistant
 spec:
-  type: NodePort              # Use NodePort only if your college allows external access
+  type: NodePort              # Use NodePort only if college allows
   selector:
-    app: ai-health-assistant  # Must match deployment labels
+    app: ai-health-assistant  # MUST match Deployment labels
   ports:
-    - port: 80                # Service Port (browser will use this)
-      targetPort: 8501        # Streamlit container port
-      nodePort: 30051         # NodePort (only for NodePort type)
+    - protocol: TCP
+      port: 80                # Service port (used by browser / ingress)
+      targetPort: 8501        # Streamlit runs on 8501
+      nodePort: 30051         # College-approved NodePort

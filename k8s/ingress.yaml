@@ -1,13 +1,19 @@
-apiVersion: v1
-kind: Service
+apiVersion: networking.k8s.io/v1
+kind: Ingress
 metadata:
-  name: ai-health-assistant-service
+  name: ai-health-assistant-ingress
   namespace: "2401031"
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
-  type: ClusterIP
-  selector:
-    app: ai-health-assistant
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 8080
+  rules:
+    - host: ai-health-assistant.imcc.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ai-health-assistant-service
+                port:
+                  number: 80
