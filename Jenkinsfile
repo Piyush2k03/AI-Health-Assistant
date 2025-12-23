@@ -325,7 +325,7 @@ spec:
           sh '''
             kubectl apply -f k8s/deployment.yaml -n ${K8S_NAMESPACE}
             kubectl apply -f k8s/service.yaml -n ${K8S_NAMESPACE}
-
+            kubectl apply -f k8s/ingress.yaml -n ${K8S_NAMESPACE}
             echo "⏳ Waiting for rollout..."
             kubectl rollout status deployment/ai-health-assistant-deployment -n ${K8S_NAMESPACE}
           '''
