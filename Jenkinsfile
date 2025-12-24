@@ -249,7 +249,7 @@ spec:
 
     K8S_NAMESPACE = "2401031"
 
-    SONAR_PROJECT_KEY = "2401031_AI_Health_Assistant"
+    SONAR_PROJECT_KEY = "2401031_HealthAssistant"
     SONAR_HOST_URL    = "http://my-sonarqube-sonarqube.sonarqube.svc.cluster.local:9000"
 
     // Jenkins Credentials
