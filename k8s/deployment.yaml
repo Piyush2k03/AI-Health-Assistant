@@ -26,7 +26,7 @@ spec:
 
       containers:
         - name: ai-health-assistant
-          image: nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085/2401031/ai-health-assistant:v1
+          image: 127.0.0.1:30085/2401031/ai-health-assistant:v1
           imagePullPolicy: Always
 
           ports:
