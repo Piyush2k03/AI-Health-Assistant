@@ -181,7 +181,7 @@ kind: Pod
 spec:
   containers:
 
-  - name: dind
+  - name: docker
     image: docker:28-dind
     securityContext:
       privileged: true
@@ -245,14 +245,14 @@ spec:
     IMAGE_TAG  = "v1"
 
     REGISTRY_HOST = "nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085"
-    REGISTRY      = "\${REGISTRY_HOST}/2401031"
+    REGISTRY      = "${REGISTRY_HOST}/2401031"
 
     K8S_NAMESPACE = "2401031"
 
     SONAR_PROJECT_KEY = "2401031_HealthAssistant"
     SONAR_HOST_URL    = "http://my-sonarqube-sonarqube.sonarqube.svc.cluster.local:9000"
 
-    // Jenkins Credentials
+    // ✅ MUST EXIST IN JENKINS → Secret Text
     SONAR_TOKEN = credentials('sonar-token-2401031')
   }
 
@@ -269,15 +269,14 @@ spec:
 
     stage('Build Docker Image') {
       steps {
-        container('dind') {
+        container('docker') {
           sh '''
-            echo "⏳ Waiting for Docker daemon..."
+            echo "⏳ Waiting for Docker..."
             for i in $(seq 1 30); do
               docker info && break
               sleep 2
             done
 
-            echo "🐳 Building Docker image..."
             docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
           '''
         }
@@ -300,7 +299,7 @@ spec:
 
     stage('Login to Nexus') {
       steps {
-        container('dind') {
+        container('docker') {
           sh '''
             docker login ${REGISTRY_HOST} -u admin -p Changeme@2025
           '''
@@ -310,7 +309,7 @@ spec:
 
     stage('Push Image to Nexus') {
       steps {
-        container('dind') {
+        container('docker') {
           sh '''
             docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
             docker push ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
@@ -326,7 +325,7 @@ spec:
             kubectl apply -f k8s/deployment.yaml -n ${K8S_NAMESPACE}
             kubectl apply -f k8s/service.yaml -n ${K8S_NAMESPACE}
             kubectl apply -f k8s/ingress.yaml -n ${K8S_NAMESPACE}
-            echo "⏳ Waiting for rollout..."
+
             kubectl rollout status deployment/ai-health-assistant-deployment -n ${K8S_NAMESPACE}
           '''
         }
@@ -337,11 +336,8 @@ spec:
       steps {
         container('kubectl') {
           sh '''
-            echo "=== Pods ==="
             kubectl get pods -n ${K8S_NAMESPACE}
-
-            echo "=== Services ==="
-            kubectl get svc -n ${K8S_NAMESPACE}
+            kubectl get svc  -n ${K8S_NAMESPACE}
           '''
         }
       }
@@ -360,3 +356,4 @@ spec:
     }
   }
 }
+
