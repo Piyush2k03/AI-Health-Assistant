@@ -318,19 +318,25 @@ spec:
       }
     }
 
-    stage('Deploy to Kubernetes') {
-      steps {
-        container('kubectl') {
-          sh '''
-            kubectl apply -f k8s/deployment.yaml -n ${K8S_NAMESPACE}
-            kubectl apply -f k8s/service.yaml -n ${K8S_NAMESPACE}
-            kubectl apply -f k8s/ingress.yaml -n ${K8S_NAMESPACE}
+stage('Deploy to Kubernetes') {
+  steps {
+    container('kubectl') {
+      sh '''
+        echo "🔧 Checking namespace..."
+        kubectl get namespace ${K8S_NAMESPACE} || kubectl create namespace ${K8S_NAMESPACE}
 
-            kubectl rollout status deployment/ai-health-assistant-deployment -n ${K8S_NAMESPACE}
-          '''
-        }
-      }
+        echo "🚀 Deploying resources..."
+        kubectl apply -f k8s/deployment.yaml -n ${K8S_NAMESPACE}
+        kubectl apply -f k8s/service.yaml -n ${K8S_NAMESPACE}
+        kubectl apply -f k8s/ingress.yaml -n ${K8S_NAMESPACE}
+
+        echo "⏳ Waiting for deployment rollout..."
+        kubectl rollout status deployment/ai-health-assistant-deployment -n ${K8S_NAMESPACE}
+      '''
     }
+  }
+}
+
 
     stage('Kubernetes Debug') {
       steps {
