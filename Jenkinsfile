@@ -266,6 +266,31 @@ spec:
         '''
       }
     }
+    
+stage('Create K8s Secrets (RUN ONCE)') {
+  steps {
+    container('kubectl') {
+      sh '''
+        echo "📦 Ensuring namespace exists..."
+        kubectl get namespace ${K8S_NAMESPACE} || kubectl create namespace ${K8S_NAMESPACE}
+
+        echo "🔐 Creating Gemini API secret..."
+        kubectl create secret generic gemini-secret \
+          --from-literal=GEMINI_API_KEY=AIzaSyB3D9AGuWZrBqDyY2fqMfocXzUOTQoRL_o \
+          -n ${K8S_NAMESPACE} \
+          --dry-run=client -o yaml | kubectl apply -f -
+
+        echo "🔐 Creating Firebase secret..."
+        kubectl create secret generic firebase-secret \
+          --from-file=firebase_key.json \
+          -n ${K8S_NAMESPACE} \
+          --dry-run=client -o yaml | kubectl apply -f -
+
+        echo "✅ Secrets created / already exist"
+      '''
+    }
+  }
+}
 
     stage('Build Docker Image') {
       steps {
