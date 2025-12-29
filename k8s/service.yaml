@@ -6,11 +6,10 @@ metadata:
   labels:
     app: ai-health-assistant
 spec:
-  type: NodePort              # Use NodePort only if college allows
+  type: NodePort
   selector:
-    app: ai-health-assistant  # MUST match Deployment labels
+    app: ai-health-assistant
   ports:
     - protocol: TCP
-      port: 80                # Service port (used by browser / ingress)
-      targetPort: 8501        # Streamlit runs on 8501
-      nodePort: 30051         # College-approved NodePort
+      port: 80
+      targetPort: 8501
